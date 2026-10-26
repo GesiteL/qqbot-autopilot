@@ -131,6 +131,7 @@ Start-Process -FilePath "cmd.exe" -ArgumentList "/c","$Root\启动.bat" -Working
 - 人类粘贴后，agent **只在本机内存**处理：用 Python（`utf-8-sig`）读 `cmd_config.json`，把 key 写入
   `provider_sources[0].key`；key 通过**环境变量或标准输入**传给子进程。
 - **红线**：key **不回显、不写日志、不进报告、不作为任何命令行参数出现**（禁止把 key 字面量写进命令/脚本/文件）。
+- **输入校验**：收到 key 后先 `strip()` 去首尾空白/换行；若为空、含换行/空格或长度明显异常，**回问确认**，禁止写入空值或脏值。
 ```powershell
 $env:QQBOT_ROOT = $Root
 # $PastedKey 为 agent 内存变量；不要把它的值写进任何脚本/日志/命令行
@@ -162,6 +163,8 @@ p.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
 ```
 - 私聊白名单按需追加 `napcat:FriendMessage:<admin>`；前缀格式固定为 `napcat:GroupMessage:<gid>`。
 - QQ 号/群号**仅用于本地写配置，不回显、不记录、不进报告**。
+- **输入校验**：管理员 QQ 与群号**仅数字**（QQ/UIN 5–11 位）；群号分隔符统一把中文逗号
+  `，` 转英文逗号 `,`，再去首尾空白/换行；含字母/非法字符或为空 → **回问确认**，禁止写脏值。
 - 人设选「是」：将 `docs/人设-小满.md` 全文写入 persona 存储（`data_v4.db` 的 `personas` 表
   `persona_id="default"`，见 004 实录）；选「否」：保留原人设（若存在）。
 
