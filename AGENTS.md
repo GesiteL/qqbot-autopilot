@@ -103,7 +103,16 @@ $env:QQBOT_ROOT = $Root
 
 ## 4. 人类检查点 A：扫码
 
+> **agent 直启协议（置顶，agent 必读）**：agent **禁止调用 `cmd.exe` / `*.bat`**（部分执行器有命令校验拦截）。
+> - **NapCat 直启**：`Start-Process "C:\QQBot\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "C:\QQBot\runtime\napcat" -WindowStyle Minimized`
+>   （确切入口以 `napcat.bat` 为准：内容 `cd /d %~dp0 && node.exe index.js`，等价直启即 `node.exe index.js`）
+> - **AstrBot 直启**：先 `$env:ASTRBOT_ROOT = "C:\QQBot\runtime\astrbot"`，再
+>   `Start-Process "C:\QQBot\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "C:\QQBot\runtime\astrbot" -WindowStyle Minimized`
+> - **停止**：按 PID（`Get-CimInstance Win32_Process` 按路径匹配 + `Stop-Process`），**禁 `taskkill`/`cmd`**。
+> - **就绪探测**：轮询端口 3001/6185/6099（复用 §5 断言）。
+
 ```powershell
+# —— 仅供人类手动使用（agent 禁止执行以下 cmd.exe / .bat 命令）——
 Start-Process cmd.exe -ArgumentList '/c',"`"$Root\runtime\napcat\napcat.bat`" > `"$Root\logs\napcat-A.log`" 2>&1" -WindowStyle Minimized
 Get-NetTCPConnection -State Listen -LocalPort 6099
 Select-String "$Root\logs\napcat-A.log" -Pattern '二维码解码URL|二维码已保存'
@@ -119,12 +128,17 @@ Select-String "$Root\logs\napcat-A.log" -Pattern '二维码解码URL|二维码�
 - 备份现有 `onebot11_<UIN>.json` 为 `.bak`；`<UIN>` 从轮询到的文件名取，**禁止提前写死**。
 - 用 `docs\onebot11-template.json` 生成整份配置；只加 WebSocket **客户端** `ws://127.0.0.1:3001/ws`；
   `messagePostFormat=array`、`reportSelfMessage=false`；token 从 `onebot-token.txt` 注入。
-- 重启两端（禁止把启动输出接管道/tail，浏览器句柄会阻塞）：
+- 重启两端（agent 用直启协议，见 §4；禁止把启动输出接管道/tail，浏览器句柄会阻塞）：
 ```powershell
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c","$Root\停止.bat" -WorkingDirectory $Root -WindowStyle Hidden
+# —— 停止：按 PID（禁 taskkill/cmd）——
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like 'C:\QQBot\runtime\napcat\*' -or $_.ExecutablePath -like 'C:\QQBot\runtime\astrbot\*' -or $_.ExecutablePath -like 'C:\QQBot\runtime\python\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 # 轮询端口全空
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c","$Root\启动.bat" -WorkingDirectory $Root -WindowStyle Hidden
+# —— 启动：直启（见 §4）——
+Start-Process "C:\QQBot\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "C:\QQBot\runtime\napcat" -WindowStyle Minimized
+$env:ASTRBOT_ROOT = "C:\QQBot\runtime\astrbot"
+Start-Process "C:\QQBot\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "C:\QQBot\runtime\astrbot" -WindowStyle Minimized
 # 轮询 3001/6185/6099 均 127.0.0.1；以 start.log READY 为准
+# —— 仅供人类手动使用：Start-Process -FilePath "cmd.exe" -ArgumentList "/c","$Root\停止.bat"/"$Root\启动.bat" ——
 ```
 - 断言 3001 出现 `ESTABLISHED`（AstrBot 服务端 + NapCat 客户端）；失败→恢复 `.bak`、重启、停止上报。
 
