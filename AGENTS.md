@@ -22,15 +22,18 @@
 (Get-CimInstance Win32_OperatingSystem).OSArchitecture
 ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 Get-PSDrive C,D | Select-Object Name,@{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
-node -v; python --version; uv --version; 7z
+node -v; python --version; uv --version; git --version; 7z
+(Invoke-WebRequest -Uri 'https://github.com' -Method Head -TimeoutSec 10).StatusCode   # 网络连通
 Get-NetTCPConnection -State Listen -LocalPort 3000,3001,6099,6185 -ErrorAction SilentlyContinue
 ```
 
-预期：Windows 11 x64；**Administrator=False**；可用空间 ≥10GB；uv/Python 3.12/7z 可用；
+预期：Windows 11 x64；**Administrator=False**；可用空间 ≥10GB；uv/Python 3.12/git/7z 可用、网络可达；
 3000/3001/6099/6185 无监听。系统 Node 可选（NapCat 自带 Node v22.11.0），缺失不阻塞。
 
-缺失处置：uv 缺失→安装官方 uv（用户级）；Python 3.12.15 缺失→`uv python install 3.12.15`；
-7z 缺失→使用官方 7-Zip Extra 的 `7zr.exe`；端口被占用→停止上报，禁止杀进程；UAC/管理员→停止。
+缺失处置：uv 缺失→官方安装（`powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`，
+再 `uv self update 0.12.23` 固定版本，用户级）；Python 3.12.15 缺失→`uv python install 3.12.15`；
+7z 缺失→使用官方 7-Zip Extra 的 `7zr.exe`；git 缺失→安装官方 Git for Windows（或插件改 zip 下载，见 v1.1）；
+无网络→停止上报；端口被占用→停止上报，禁止杀进程；UAC/管理员→停止。
 
 - **JSON 读写红线**：一切 JSON 读写必须用 Python（`utf-8-sig`）；**禁止** `ConvertFrom-Json` + `Set-Content`
   组合（PS 5.1 会写 BOM / 损坏中文，BOM 事故教训）。
