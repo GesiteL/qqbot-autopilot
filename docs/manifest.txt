@@ -528,3 +528,51 @@ Cleanup: C:\QQBot, C:\QQBotTest, .tmp\oldinstall removed; no services/ports/proc
 A1 user re-run pending: user must double-click new installer, see progress/error pause;
   seal only after user confirmation.
 
+=== QQBOT-012 (2026-10-26) — AGENTS.md SELF-BOOTSTRAP GUIDE + REHEARSAL + SECRET ROTATION ===
+
+Deliverable (repo, this commit):
+  AGENTS.md  — agent self-bootstrap guide. Reader = WorkBuddy/DSH-class agent. Red lines:
+    bind 127.0.0.1 only; tokens+key never leave machine; only touch C:\QQBot; pinned
+    versions+SHA256 (no "latest"); any step failure = stop + report, no improvisation.
+  README.md  — added agent pointer: "如果你是 AI Agent，请首先阅读 AGENTS.md".
+  .gitignore — added data/ (AstrBot runtime artifact, not source; regenerable).
+
+AGENTS.md final 3 fixes (verified; no other Set-Content -Encoding UTF8 remains):
+  1) dry-run docs copy: "$Repo\docs" -> "$Repo\docs\*" (avoids nested docs\docs).
+  2) dry-run two Set-Content -Encoding UTF8 -> [IO.File]::WriteAllText (writes no BOM).
+  3) key read: Get-Content -Raw .Trim() -> [IO.File]::ReadAllText (strips BOM).
+  Node mentions in doc are informational only; no dangling Node edit inside AGENTS.md.
+
+Rehearsal (C:\QQBotRehearsal, NO real login/key/UIN): PASS
+  Checkpoint A: QR image path + txz decode URL + fake onebot11_<UIN>.json injected.
+  Both ends READY; 3001/6099/6185 all 127.0.0.1; fake key injected; stop released ports.
+  C:\QQBotRehearsal deleted after rehearsal.
+
+INCIDENT + ROTATION (K-3):
+  A PS 5.1 encoding error during 012 rehearsal echoed local AstrBot config to the
+  terminal (dashboard password, JWT, platform token, admin UIN). Not written to repo /
+  AGENTS / REHEARSAL.log. Secret-bearing dir C:\QQBotRehearsal deleted.
+  No C:\QQBot production install exists at wrap-up.
+  On-disk local secrets found in project runtime (git-ignored build artifacts):
+    runtime/secrets/napcat-webui-token.txt, runtime/secrets/onebot-token.txt,
+    runtime/napcat/napcat/config/webui.json (token),
+    runtime/astrbot/data/cmd_config.json (dashboard.password, jwt_secret,
+      platform[0].ws_reverse_token).
+  All FOUR classes REGENERATED via secrets.token_hex; references re-synced:
+    webui.json.token == napcat-webui-token.txt; cmd_config.platform[0].ws_reverse_token
+      == onebot-token.txt; dashboard.password + jwt_secret replaced.
+    Pre-rotation copies backed up at .tmp/rotation-backup-012/<TS>/.
+  No service started during rotation: Get-NetTCPConnection 3001/6099/6185 = no listeners
+    (red line: no non-127.0.0.1 binding — satisfied by construction).
+  Session-echoed values treated as compromised; never reuse.
+  NOTE: delivered 安装包.exe payload still embeds pre-rotation tokens until rebuilt; the
+    AGENTS.md install flow regenerates secrets on the customer machine, so customers are
+    not exposed. Installer rebuild = separate follow-up (new hashes).
+
+data/ artifact: removed from repo (moved to .tmp/data-removed-012, reversible). It was
+  AstrBot default config only (empty provider_sources, zero real secret) auto-generated
+  by `astrbot.cli --version` run from project root.
+
+Commit: LOCAL ONLY, no push. Files: README.md, AGENTS.md, .gitignore, docs/manifest.txt.
+  HEAD before = ce57f35. 012 commit not pushed (per K).
+

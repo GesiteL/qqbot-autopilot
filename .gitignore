@@ -6,6 +6,7 @@ payload.7z
 # Runtime and secrets
 runtime/
 secrets/
+data/
 *.key
 *.pem
 
