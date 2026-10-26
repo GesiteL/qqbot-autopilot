@@ -38,7 +38,7 @@
    LZMA `payload.7z`；按 `pack/iexpress/qqbot.sed` 调整 SourceFiles 路径，
    将 `payload.7z`、官方 `7zr.exe`、`pack/iexpress/install.bat` 交给 IExpress
    生成 `安装包.exe`（产物不入库）。
-5. 启动后仅监听 `127.0.0.1:3001/6099/6185`；扫码、填 Key、验收按 `docs/` 执行。
+5. 启动后仅监听 `127.0.0.1:3001/6099/6185`；**人类准备 = 扫一次码、回答 AI 几个问题**，验收按 `docs/` 执行。
 
 ## 安全与免责
 
