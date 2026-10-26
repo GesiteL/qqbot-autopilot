@@ -1,0 +1,27 @@
+# Build outputs (never commit)
+安装包.exe
+payload.7z
+7zr.exe
+
+# Runtime and secrets
+runtime/
+secrets/
+*.key
+*.pem
+
+# Logs and QR codes
+*.log
+start.log
+qrcode*.png
+*.db-wal
+*.db-shm
+
+# Temp and caches
+.tmp/
+__pycache__/
+*.pyc
+.venv/
+
+# OS metadata
+Thumbs.db
+.DS_Store
