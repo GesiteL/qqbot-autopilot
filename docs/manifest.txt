@@ -576,3 +576,31 @@ data/ artifact: removed from repo (moved to .tmp/data-removed-012, reversible). 
 Commit: LOCAL ONLY, no push. Files: README.md, AGENTS.md, .gitignore, docs/manifest.txt.
   HEAD before = ce57f35. 012 commit not pushed (per K).
 
+=== QQBOT-013 (2026-10-26) — INSTALLER REBUILD (post secret rotation) ===
+Purpose: rebuild installer so delivered 安装包.exe no longer ships pre-rotation secrets.
+
+FINAL 安装包.exe (project root):
+  bytes 174,288,896  SHA256 7b05c56b41e3529fa4c0108a0a9deca3b549f3dc4da44c36980a69c89470344d
+Embedded members (verified by unpacking installer with 7za as Cab):
+  payload.7z  173,513,072 B  SHA256 0213878d27a8531e1971f56bca4c88051de1b2f604112354b3a81a1428a6b3b8
+     (rotated tokens inside; runtime/secrets + cmd_config platform[0].ws_reverse_token
+      + webui.token all = NEW rotated values; hosts 127.0.0.1)
+  7zr.exe     1,334,272 B   SHA256 3a30d7761967ad217b90e3e3e02aabd82b13065d7401bf436adefdf75cfea72e
+     (official 7-Zip 26.00 x64; 7za.exe renamed to 7zr.exe to satisfy install.bat;
+      supersedes previously-pinned reduced 7zr 4bec0bc... no longer fetchable; current
+      7-zip.org standalone 7zr is a newer version, rejected to keep 26.00 version pin)
+  install.bat 2,218 B       SHA256 23718859bf73b69297fdbe3793b5a5e5b6bd477a22022401c981fa3953578931
+     (unchanged from 008b)
+INVALID / do not ship (008b, pre-rotation tokens):
+  安装包.exe 174,100,480 B  SHA256 b4ec99ebdb5970c73409a11ace110084f19ec472f47fdf18024f4d83adcd7dc3
+  payload.7z 173,538,063 B  SHA256 9adb1d4780d56fc5e8ef2583d05f2cb14017072a739b16316563585a2cc05017
+Build note: IExpress (Windows built-in, red line = no third-party SFX). Headless/silent
+  (`iexpress /N /Q`) produced no output; scheduled-task bridge exited 1. Resolved via GUI
+  wizard on user desktop; SED relocated to ASCII path C:\QQBotTest\build\qqbot.sed
+  (Chinese path made IExpress a no-op). Source C:\QQBotTest\build\src\{install.bat,
+  7zr.exe, payload.7z}; output C:\QQBotTest\build\QQBotInstaller.exe copied to 安装包.exe.
+Verification: payload tokens == rotated; check_stage no abs-path leak / no forbidden files;
+  red line (no non-127.0.0.1 binding) satisfied. C:\QQBot removed after checks.
+Commit: LOCAL ONLY, no push. Files: docs/manifest.txt (013 record).
+  HEAD before = 1ac187f.
+
