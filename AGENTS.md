@@ -93,6 +93,7 @@ New-Item -ItemType Directory -Force "$Root\runtime","$Root\logs","$Root\docs" | 
 https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Shell.Windows.Node.zip
 SHA256 `51fbb10e7bcd56b0c2a6de86c37811e7518330e48a137ac689ab1e4d8627d3f0`；大小 124,089,498 B。
 ```powershell
+$url = 'https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Shell.Windows.Node.zip'
 $zip = "$env:TEMP\NapCat.Shell.Windows.Node.zip"
 Invoke-WebRequest $url -OutFile $zip
 if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne '51FBB10E7BCD56B0C2A6DE86C37811E7518330E48A137AC689AB1E4D8627D3F0') { throw 'NapCat hash mismatch' }
