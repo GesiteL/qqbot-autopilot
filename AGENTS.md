@@ -7,8 +7,8 @@
 ## 0. 身份与契约（红线段）
 
 - **生产根目录**：`$Root = "C:\QQBot"`（默认）。只允许写这里。
-- **盘符例外**：若人类用成品安装包并选了别的盘，根目录为 `<盘符>:\QQBot`——以安装根目录下的
-  `安装信息.txt` 为准；agent 自举模式仍固定 `C:\QQBot`，改盘符只走安装包。
+- **盘符例外（下一版本起）**：若人类用成品安装包并选了别的盘，根目录为 `<盘符>:\QQBot`——以安装根目录下的
+  `安装信息.txt` 为准；当前版本安装包固定 `C:\QQBot`。agent 自举模式仍固定 `C:\QQBot`，改盘符只走安装包。
 - **推演例外**：仅 `$DryRun = 1` 时可用 `$Root = "C:\QQBotRehearsal"`；推演结束立即删除，生产 agent 不得使用该模式。
 - 所有服务只绑 `127.0.0.1`；禁止 `0.0.0.0`、端口映射、管理员/UAC、注册表、Windows 服务。
 - token 只存本机 `runtime\secrets\`；模型 key 仅注入本机 `cmd_config.json`（内存传递，不落明文文件、不回显、不发聊天、不写日志/仓库/报告；报告只写 `***`）。
@@ -147,13 +147,13 @@ $env:QQBOT_ROOT = $Root
 - 读取 `runtime\secrets\*.txt` 写入配置，**不要回显**。
 - NapCat `webui.json`：`host=127.0.0.1`，token 取 `napcat-webui-token.txt`。
 - OneBot：模板 `docs\templates\onebot11-template.json`，token 占位符 `{{ONEBOT_TOKEN}}` 现场替换；禁止建 3001 服务端。
-- AstrBot：dashboard 绑 `127.0.0.1`；provider 用 OpenAI 兼容 `https://api-bzj.hnfhnq.cn/v1`，模型
-  `custom/【草莓按次-0.03】gemini-3.8-flash-high`，key 由检查点 B 交互获取；admin/群白名单/人设由检查点 C
+- AstrBot：dashboard 绑 `127.0.0.1`；provider 用 OpenAI 兼容 `<中转站地址>`（以所购站点提供地址为准），模型
+  `custom/【草莓按次-0.03】gemini-3.8-flash-high`，地址与 key 由检查点 B 交互获取；admin/群白名单/人设由检查点 C
   交互获取，禁止写死任何 QQ/UIN；人设参照 `docs/templates/人设-小满.md`。若使用已验证的 `runtime\astrbot\data` 缓存则保留其配置。
 
 ## 4. 人类检查点 A：扫码
 
-> **路径约定**：本节与 §5 中的 `$Root` 指安装根目录（自举默认 `C:\QQBot`；安装包选了其它盘时为其盘符下的 `QQBot`）。
+> **路径约定**：本节与 §5 中的 `$Root` 指安装根目录（自举默认 `C:\QQBot`；下一版本安装包可选盘时为其盘符下的 `QQBot`）。
 >
 > **agent 直启协议（置顶，agent 必读）**：agent **禁止调用 `cmd.exe` / `*.bat`**（部分执行器有命令校验拦截）。
 > - **NapCat 直启**：`Start-Process "$Root\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "$Root\runtime\napcat" -WindowStyle Minimized`
@@ -196,17 +196,20 @@ Start-Process "$Root\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli"
 
 ## 6. 人类检查点 B：模型 API Key（问答式）
 
-- 向人类提问：**“请提供模型 API Key（OpenAI 兼容，base=`https://api-bzj.hnfhnq.cn/v1`）”**，等待人类在对话中粘贴。
+- 向人类提问：**“请提供 `<中转站地址>` 与模型 API Key（OpenAI 兼容；地址以所购站点提供地址为准）”**，等待人类在对话中粘贴。
 - 人类粘贴后，agent **只在本机内存**处理：用 Python（`utf-8-sig`）读 `cmd_config.json`，把 key 写入
-  `provider_sources[0].key`；key 通过**环境变量或标准输入**传给子进程。
+  `provider_sources[0].key`，把地址写入 `provider_sources[0].api_base`（`https://` 开头、无空格）；
+  key 与地址都通过**环境变量或标准输入**传给子进程。
 - **红线**：key **不回显、不写日志、不进报告、不作为任何命令行参数出现**（禁止把 key 字面量写进命令/脚本/文件）。
 - **输入校验**：收到 key 后先 `strip()` 去首尾空白/换行；若为空、含换行/空格或长度明显异常，**回问确认**，禁止写入空值或脏值。
 ```powershell
 $env:QQBOT_ROOT = $Root
-# $PastedKey 为 agent 内存变量；不要把它的值写进任何脚本/日志/命令行
+# $PastedKey / $PastedBase 为 agent 内存变量；不要把它们的值写进任何脚本/日志/命令行
 $env:QQBOT_KEY = $PastedKey
-& "$Root\runtime\python\python.exe" -c "import json,os,pathlib; p=pathlib.Path(os.environ['QQBOT_ROOT'])/'runtime'/'astrbot'/'data'/'cmd_config.json'; c=json.loads(p.read_text(encoding='utf-8-sig')); c['provider_sources'][0]['key']=[os.environ['QQBOT_KEY']]; p.write_text(json.dumps(c,ensure_ascii=False,indent=2),encoding='utf-8')"
+$env:QQBOT_BASE = $PastedBase
+& "$Root\runtime\python\python.exe" -c "import json,os,pathlib; p=pathlib.Path(os.environ['QQBOT_ROOT'])/'runtime'/'astrbot'/'data'/'cmd_config.json'; c=json.loads(p.read_text(encoding='utf-8-sig')); c['provider_sources'][0]['key']=[os.environ['QQBOT_KEY']]; c['provider_sources'][0]['api_base']=os.environ['QQBOT_BASE']; p.write_text(json.dumps(c,ensure_ascii=False,indent=2),encoding='utf-8')"
 Remove-Item Env:\QQBOT_KEY
+Remove-Item Env:\QQBOT_BASE
 ```
 - 重启 AstrBot（同上 Start-Process/poll）；确认 6185 为 `127.0.0.1` 监听。
 
