@@ -38,17 +38,19 @@ $forbidden += Get-ChildItem -LiteralPath $Stage -Recurse -Directory | Where-Obje
 $required = @(
     "启动.bat",
     "停止.bat",
-    "install.bat",
-    "config.txt",
     "runtime\python\python.exe",
     "runtime\napcat\napcat.bat",
     "runtime\astrbot\data\data_v4.db",
     "runtime\astrbot\data\cmd_config.json",
     "runtime\secrets\napcat-webui-token.txt",
     "runtime\secrets\onebot-token.txt",
-    "docs\README-客户.md",
-    "docs\客户手册-填key.md",
-    "docs\post-login.md"
+    "docs\customer\README-客户.md",
+    "docs\customer\客户手册-填key.md",
+    "docs\customer\post-login.md",
+    "docs\customer\AI教学手册-第一册-安装.md",
+    "docs\customer\AI教学手册-第二册-配置.md",
+    "docs\templates\onebot11-template.json",
+    "docs\templates\人设-小满.md"
 )
 $missing = @()
 foreach ($r in $required) {

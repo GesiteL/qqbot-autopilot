@@ -2,6 +2,8 @@
 安装包.exe
 payload.7z
 7zr.exe
+packages/
+安装信息.txt
 
 # Runtime and secrets
 runtime/
@@ -22,6 +24,7 @@ qrcode*.png
 __pycache__/
 *.pyc
 .venv/
+.workbuddy/
 
 # OS metadata
 Thumbs.db

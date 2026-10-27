@@ -6,7 +6,9 @@
 
 ## 0. 身份与契约（红线段）
 
-- **生产根目录**：`$Root = "C:\QQBot"`。只允许写这里。
+- **生产根目录**：`$Root = "C:\QQBot"`（默认）。只允许写这里。
+- **盘符例外**：若人类用成品安装包并选了别的盘，根目录为 `<盘符>:\QQBot`——以安装根目录下的
+  `安装信息.txt` 为准；agent 自举模式仍固定 `C:\QQBot`，改盘符只走安装包。
 - **推演例外**：仅 `$DryRun = 1` 时可用 `$Root = "C:\QQBotRehearsal"`；推演结束立即删除，生产 agent 不得使用该模式。
 - 所有服务只绑 `127.0.0.1`；禁止 `0.0.0.0`、端口映射、管理员/UAC、注册表、Windows 服务。
 - token 只存本机 `runtime\secrets\`；模型 key 仅注入本机 `cmd_config.json`（内存传递，不落明文文件、不回显、不发聊天、不写日志/仓库/报告；报告只写 `***`）。
@@ -52,6 +54,41 @@ $Root = if ($DryRun -eq 1) { 'C:\QQBotRehearsal' } else { 'C:\QQBot' }
 New-Item -ItemType Directory -Force "$Root\runtime","$Root\logs","$Root\docs" | Out-Null
 ```
 
+### 2.1 下载地址表（唯一合法来源）
+
+| 组件 | 固定版本 | 官方地址 | 校验 |
+|---|---|---|---|
+| NapCatQQ（Shell.Node） | v4.18.41 | `https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Shell.Windows.Node.zip` | SHA256 `51fbb10e7bcd56b0c2a6de86c37811e7518330e48a137ac689ab1e4d8627d3f0`；124,089,498 B |
+| uv | 0.12.23 | `https://astral.sh/uv/install.ps1`（官方脚本） | 装完 `uv self update 0.12.23` 锁定 |
+| Python | 3.12.15 | `uv python install 3.12.15`（uv 官方 python-build-standalone 源） | `uv python find 3.12.15` 复核 |
+| AstrBot | 4.29.3 | `https://pypi.org/project/astrbot/`（或 §2.3 镜像） | `astrbot.cli --version` = 4.29.3 |
+| pip 依赖 | 见 §2.3 | PyPI / 清华镜像 | 版本号逐项锁定 |
+| LLMPerception | commit `be48a2b3` | `https://github.com/miaoxutao123/astrbot_plugin_LLMPerception.git` | `git checkout` 到固定 commit |
+| qzone | commit `f474c50c` | `https://github.com/Zhalslar/astrbot_plugin_qzone.git` | 同上 |
+| music | commit `9022a710` | `https://github.com/Zhalslar/astrbot_plugin_music.git` | 同上 |
+| 7zr | 26.00 | `https://www.7-zip.org/a/7zr.exe`（7-Zip Extra） | SHA256 `4bec0bc59836a890a11568b58bd12a3e7b23a683557340562da211b6088058ba` |
+
+规则：只用上表地址；禁止 CDN、网盘、转载包、第三方镜像站（PyPI 清华镜像为唯一例外，见 §2.3）。
+表外组件（例如"最新版 uv"）一律视为违规；版本号对不上即停止，不得"先装再升"。
+
+### 2.2 packages/ 预置协议（离线优先）
+
+交付方可在仓库根放 `packages\`（**不入库**，随交付介质分发），按固定文件名预置整包：
+
+| 预置文件 | 对应组件 | 验收方式 |
+|---|---|---|
+| `packages\NapCat.Shell.Windows.Node.zip` | NapCat v4.18.41 | SHA256 与 §2.1 一致 |
+| `packages\python-3.12.15-standalone.tar.gz` | Python 3.12.15 | 解压后 `python.exe --version` = 3.12.15 |
+| `packages\7zr.exe` | 7-Zip Extra 26.00 | SHA256 与 §2.1 一致 |
+| `packages\wheels\`（可选） | AstrBot 与插件依赖 | `uv pip install --no-index --find-links` 成功 |
+
+取包顺序（固定，不得跳步）：
+1. `packages\` 命中且校验通过 → 直接用，**不联网**。
+2. 未命中 / 校验失败 → 按 §2.1 官方地址下载；**不得**拿第三方包顶上。
+3. 下载后仍校验 SHA256 与版本号；不符即停止上报。
+4. `packages\` 只作安装期缓存，**不复制进 `$Root`**；安装完成后可删。
+5. 文件名必须完全一致；`latest`、"带 (1) 的副本"、散装 zip 一律视为不存在。
+
 **NapCat v4.18.41**（官方 GitHub Release，仅 `NapCat.Shell.Windows.Node.zip`）：
 https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.41/NapCat.Shell.Windows.Node.zip
 SHA256 `51fbb10e7bcd56b0c2a6de86c37811e7518330e48a137ac689ab1e4d8627d3f0`；大小 124,089,498 B。
@@ -62,7 +99,7 @@ if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne '51FBB10E7BCD56B0C2A6DE86C378
 7z x $zip -o"$Root\runtime\napcat" -y
 ```
 
-**Python / AstrBot / 插件依赖**（全部固定）：
+### 2.3 Python / AstrBot / 依赖（全部固定）
 - Python **3.12.15**（uv 0.12.23）；AstrBot **4.29.3**
 - chinese-calendar **1.11.0**、lunarcalendar **0.0.9**、json5 **0.17.3**、apilmoji **0.3.1**
   （实测运行时另含 Pillow **13.0.0**、beautifulsoup4 **4.15.0**）
@@ -78,7 +115,7 @@ uv pip install --break-system-packages --python "$Root\runtime\python\python.exe
 - **镜像范围**：只有 pip（PyPI）可镜像，默认清华；`uv python install`、NapCat、7-Zip、插件仍走官方源。
   清华缺包或哈希不符 → 只允许改回官方 `https://pypi.org/simple` 重试一次；仍失败即停止上报。
 
-**插件**（实测为 3 个；若交付另有第 4 个，必须另给固定 commit，禁止 latest）：
+### 2.4 插件（实测 3 个；第 4 个必须另给固定 commit，禁止 latest）
 ```powershell
 $p = "$Root\runtime\astrbot\data\plugins"
 git clone https://github.com/miaoxutao123/astrbot_plugin_LLMPerception.git "$p\astrbot_plugin_LLMPerception"
@@ -89,11 +126,15 @@ git clone https://github.com/Zhalslar/astrbot_plugin_music.git "$p\astrbot_plugi
 git -C "$p\astrbot_plugin_music" checkout 9022a710aa85bd0287978384be6efa72c3eabdd1
 ```
 
-**7zr 26.00**（官方 7-Zip Extra，仅打包用）：SHA256
-`4bec0bc59836a890a11568b58bd12a3e7b23a683557340562da211b6088058ba`；IExpress 为 Windows 自带。
+### 2.5 打包工具与缓存加速
+
+**7zr 26.00**（官方 7-Zip Extra，仅打包用）：`https://www.7-zip.org/a/7zr.exe`，SHA256
+`4bec0bc59836a890a11568b58bd12a3e7b23a683557340562da211b6088058ba`；IExpress 为 Windows 自带（legacy，见 `packaging/iexpress-legacy/`）。
+
 缓存加速（仅推演/预置交付）：允许复制已验证的 `runtime\`；**按完整路径**排除 `secrets`、`.venv`，
 不要按目录名排除 `webchat/cache/plugin_data`（代码与数据同名，实测会删掉 AstrBot 的 webchat 模块）；
-复制后必须重新生成本机 token，并核对版本。
+复制后必须重新生成本机 token，并核对版本。注意区分：`packages\` 放的是**组件原包**（§2.2），
+`runtime\` 缓存放的是**已装好的运行时**，两者不可混用。
 
 ## 3. 配置落盘（token 现场生成，禁止示例值）
 
@@ -104,18 +145,20 @@ $env:QQBOT_ROOT = $Root
 
 - 读取 `runtime\secrets\*.txt` 写入配置，**不要回显**。
 - NapCat `webui.json`：`host=127.0.0.1`，token 取 `napcat-webui-token.txt`。
-- OneBot：模板 `docs\onebot11-template.json`，token 占位符 `{{ONEBOT_TOKEN}}` 现场替换；禁止建 3001 服务端。
+- OneBot：模板 `docs\templates\onebot11-template.json`，token 占位符 `{{ONEBOT_TOKEN}}` 现场替换；禁止建 3001 服务端。
 - AstrBot：dashboard 绑 `127.0.0.1`；provider 用 OpenAI 兼容 `https://api-bzj.hnfhnq.cn/v1`，模型
   `custom/【草莓按次-0.03】gemini-3.8-flash-high`，key 由检查点 B 交互获取；admin/群白名单/人设由检查点 C
-  交互获取，禁止写死任何 QQ/UIN；人设参照 `docs/人设-小满.md`。若使用已验证的 `runtime\astrbot\data` 缓存则保留其配置。
+  交互获取，禁止写死任何 QQ/UIN；人设参照 `docs/templates/人设-小满.md`。若使用已验证的 `runtime\astrbot\data` 缓存则保留其配置。
 
 ## 4. 人类检查点 A：扫码
 
+> **路径约定**：本节与 §5 中的 `$Root` 指安装根目录（自举默认 `C:\QQBot`；安装包选了其它盘时为其盘符下的 `QQBot`）。
+>
 > **agent 直启协议（置顶，agent 必读）**：agent **禁止调用 `cmd.exe` / `*.bat`**（部分执行器有命令校验拦截）。
-> - **NapCat 直启**：`Start-Process "C:\QQBot\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "C:\QQBot\runtime\napcat" -WindowStyle Minimized`
+> - **NapCat 直启**：`Start-Process "$Root\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "$Root\runtime\napcat" -WindowStyle Minimized`
 >   （确切入口以 `napcat.bat` 为准：内容 `cd /d %~dp0 && node.exe index.js`，等价直启即 `node.exe index.js`）
-> - **AstrBot 直启**：先 `$env:ASTRBOT_ROOT = "C:\QQBot\runtime\astrbot"`，再
->   `Start-Process "C:\QQBot\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "C:\QQBot\runtime\astrbot" -WindowStyle Minimized`
+> - **AstrBot 直启**：先 `$env:ASTRBOT_ROOT = "$Root\runtime\astrbot"`，再
+>   `Start-Process "$Root\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "$Root\runtime\astrbot" -WindowStyle Minimized`
 > - **停止**：按 PID（`Get-CimInstance Win32_Process` 按路径匹配 + `Stop-Process`），**禁 `taskkill`/`cmd`**。
 > - **就绪探测**：轮询端口 3001/6185/6099（复用 §5 断言）。
 
@@ -134,17 +177,17 @@ Select-String "$Root\logs\napcat-A.log" -Pattern '二维码解码URL|二维码�
 ## 5. 接线（零点击）
 
 - 备份现有 `onebot11_<UIN>.json` 为 `.bak`；`<UIN>` 从轮询到的文件名取，**禁止提前写死**。
-- 用 `docs\onebot11-template.json` 生成整份配置；只加 WebSocket **客户端** `ws://127.0.0.1:3001/ws`；
+- 用 `docs\templates\onebot11-template.json` 生成整份配置；只加 WebSocket **客户端** `ws://127.0.0.1:3001/ws`；
   `messagePostFormat=array`、`reportSelfMessage=false`；token 从 `onebot-token.txt` 注入。
 - 重启两端（agent 用直启协议，见 §4；禁止把启动输出接管道/tail，浏览器句柄会阻塞）：
 ```powershell
 # —— 停止：按 PID（禁 taskkill/cmd）——
-Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like 'C:\QQBot\runtime\napcat\*' -or $_.ExecutablePath -like 'C:\QQBot\runtime\astrbot\*' -or $_.ExecutablePath -like 'C:\QQBot\runtime\python\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Root\runtime\napcat\*" -or $_.ExecutablePath -like "$Root\runtime\astrbot\*" -or $_.ExecutablePath -like "$Root\runtime\python\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 # 轮询端口全空
 # —— 启动：直启（见 §4）——
-Start-Process "C:\QQBot\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "C:\QQBot\runtime\napcat" -WindowStyle Minimized
-$env:ASTRBOT_ROOT = "C:\QQBot\runtime\astrbot"
-Start-Process "C:\QQBot\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "C:\QQBot\runtime\astrbot" -WindowStyle Minimized
+Start-Process "$Root\runtime\napcat\node.exe" -ArgumentList "index.js" -WorkingDirectory "$Root\runtime\napcat" -WindowStyle Minimized
+$env:ASTRBOT_ROOT = "$Root\runtime\astrbot"
+Start-Process "$Root\runtime\python\python.exe" -ArgumentList "-m","astrbot.cli","run" -WorkingDirectory "$Root\runtime\astrbot" -WindowStyle Minimized
 # 轮询 3001/6185/6099 均 127.0.0.1；以 start.log READY 为准
 # —— 仅供人类手动使用：Start-Process -FilePath "cmd.exe" -ArgumentList "/c","$Root\停止.bat"/"$Root\启动.bat" ——
 ```
@@ -171,7 +214,7 @@ Remove-Item Env:\QQBOT_KEY
 依次向人类提问（等回答后再问下一个）：
 1. **管理员 QQ 号是多少？**
 2. **白名单群号？**（支持多个，逗号或每行分隔）
-3. **是否加载默认人设「小满」？**（`docs/人设-小满.md`）
+3. **是否加载默认人设「小满」？**（`docs/templates/人设-小满.md`）
 
 人类回答后，agent 用 Python（`utf-8-sig`）写 `cmd_config.json`：
 ```python
@@ -190,7 +233,7 @@ p.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
 - QQ 号/群号**仅用于本地写配置，不回显、不记录、不进报告**。
 - **输入校验**：管理员 QQ 与群号**仅数字**（QQ/UIN 5–11 位）；群号分隔符统一把中文逗号
   `，` 转英文逗号 `,`，再去首尾空白/换行；含字母/非法字符或为空 → **回问确认**，禁止写脏值。
-- 人设选「是」：将 `docs/人设-小满.md` 全文写入 persona 存储（`data_v4.db` 的 `personas` 表
+- 人设选「是」：将 `docs/templates/人设-小满.md` 全文写入 persona 存储（`data_v4.db` 的 `personas` 表
   `persona_id="default"`，见 004 实录）；选「否」：保留原人设（若存在）。
 
 ## 8. 四联自检
@@ -218,14 +261,16 @@ robocopy "$Repo\runtime\python" "$Root\runtime\python" /E /NFL /NDL /NJH /NJS /N
 robocopy "$Repo\runtime\napcat" "$Root\runtime\napcat" /E /NFL /NDL /NJH /NJS /NP
 robocopy "$Repo\runtime\astrbot" "$Root\runtime\astrbot" /E /XD "$Repo\runtime\astrbot\.venv" "$Repo\runtime\secrets" /NFL /NDL /NJH /NJS /NP
 # 不要按目录名排除 webchat/cache：会误删代码目录
-Copy-Item "$Repo\docs\*" "$Root\docs" -Recurse -Force
-Copy-Item "$Repo\启动.bat","$Repo\停止.bat" "$Root" -Force
+# 只搬对客文档与模板（internal 是内部资料，不随运行时复制）
+Copy-Item "$Repo\docs\customer" "$Root\docs\customer" -Recurse -Force
+Copy-Item "$Repo\docs\templates" "$Root\docs\templates" -Recurse -Force
+Copy-Item "$Repo\launcher\启动.bat","$Repo\launcher\停止.bat" "$Root" -Force
 # 按第 3 节重新生成本机 token；更新 webui.json 与 AstrBot platform token
-$t = Get-Content "$Repo\docs\onebot11-template.json" -Raw
+$t = Get-Content "$Repo\docs\templates\onebot11-template.json" -Raw
 $tok = (Get-Content "$Root\runtime\secrets\onebot-token.txt" -Raw).Trim()
 [IO.File]::WriteAllText("$Root\runtime\napcat\napcat\config\onebot11_TEST_UIN.json", ($t.Replace('{{ONEBOT_TOKEN}}',$tok)))
 # 检查点 B/C 用假 key / 假 QQ / 假群号走问答注入；假值仅内存/临时副本，不落仓库
 # 用第 5/6 节 Start-Process 启停并轮询；3001 ESTABLISHED 与 LLM 200 标记为“人类/真机待验”
-# 结束后：Start-Process 停止.bat → 轮询端口 → Remove-Item $Root -Recurse -Force
+# 结束后：Start-Process "$Root\停止.bat" → 轮询端口 → Remove-Item $Root -Recurse -Force
 ```
 干跑不得使用真实 QQ 登录、真实 key、真实 UIN；不得把假值写入仓库或报告。

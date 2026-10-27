@@ -604,3 +604,16 @@ Verification: payload tokens == rotated; check_stage no abs-path leak / no forbi
 Commit: LOCAL ONLY, no push. Files: docs/manifest.txt (013 record).
   HEAD before = 1ac187f.
 
+=== 019c STRUCTURE MIGRATION (2026-10-27) ===
+Repo layout changed at v0.1.0 (019c). Paths recorded ABOVE are historical: they describe
+where files lived when each run happened, and are kept verbatim for audit.
+Current layout:
+  customer docs  -> docs/customer/
+  internal notes -> docs/internal/   (this manifest, handoff card; not shipped in installer)
+  templates      -> docs/templates/  (onebot11 template, persona)
+  ops manual     -> repo root (MAINTENANCE.md)
+  launchers      -> launcher/        (启动.bat / 停止.bat; at install root after install)
+  IExpress set   -> packaging/iexpress-legacy/  (legacy; removed in v0.2)
+Validation for 019c excludes this file: it is an append-only run log, not a live reference.
+
+

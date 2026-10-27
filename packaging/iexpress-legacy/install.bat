@@ -68,28 +68,69 @@ exit /b 1
 
 :lock_done
 
-if exist "C:\QQBot\" (
+rem ---------- Q0 安装位置：先问盘符，再定安装目录 ----------
+rem 只装一个文件夹，不写注册表、不装服务；默认 C 盘，兼容 C-H。
+set "DRIVE="
+set "TARGET="
+echo.
+echo [Q0] 安装在哪个盘？只装一个文件夹，不写注册表、不装系统服务。
+set /p "DRIVE=请输入盘符 C/D/E/F，直接回车 = C 盘: "
+if not defined DRIVE set "DRIVE=C"
+set "DRIVE=%DRIVE: =%"
+set "DRIVE=%DRIVE::=%"
+set "DRIVE=%DRIVE:\=%"
+set "DRIVE=%DRIVE:/=%"
+set "DRIVE=%DRIVE:QQBot=%"
+set "NORM="
+for %%d in (C D E F G H) do if /i "%DRIVE%"=="%%d" set "NORM=%%d"
+if not defined NORM goto baddir
+set "DRIVE=%NORM%"
+set "TARGET=%DRIVE%:\QQBot"
+echo [Q0] 安装目录：%TARGET%
+echo [%TIME%] TARGET=%TARGET% >> "%LOG%"
+
+if not exist "%DRIVE%:\" goto baddir
+
+set "FREEGB="
+for /f "delims=" %%i in ('powershell -NoProfile -Command "$v=Get-PSDrive -Name %DRIVE% -ErrorAction SilentlyContinue; if($v){[math]::Floor($v.Free/1GB)}"') do set "FREEGB=%%i"
+if defined FREEGB if %FREEGB% LSS 10 echo [提示] %DRIVE% 盘剩余 %FREEGB% GB，低于建议的 10 GB，安装可能失败。
+
+if exist "%TARGET%\" (
     echo [%TIME%] OVERWRITE_PROMPT >> "%LOG%"
-    choice /C YN /N /T 15 /D Y /M "C:\QQBot already exists. Overwrite? [Y/N] (auto Y in 15s) "
+    choice /C YN /N /T 15 /D Y /M "%TARGET% 已存在。覆盖安装？[Y/N]（15 秒后自动 Y） "
     if errorlevel 2 goto cancel
     echo [%TIME%] OVERWRITE_CONFIRMED >> "%LOG%"
 )
 
 echo [%TIME%] EXTRACT_BEGIN >> "%LOG%"
-echo [1/3] 正在解压，约需 2 分钟，请勿关闭本窗口
+echo [1/4] 正在解压到 %TARGET%，约需 2 分钟，请勿关闭本窗口
 echo.
-"%~dp07zr.exe" x "%~dp0payload.7z" -o"C:\QQBot" -y -bsp1
+"%~dp07zr.exe" x "%~dp0payload.7z" -o"%TARGET%" -y -bsp1
 if errorlevel 1 goto extractfail
 echo.
-echo [2/3] 正在启动机器人...
+echo [2/4] 正在记录安装信息...
 echo [%TIME%] EXTRACT_OK >> "%LOG%"
 
-if not exist "C:\QQBot\runtime\python\python.exe" goto startfail
-powershell -NoProfile -Command "$f=Get-ChildItem -LiteralPath 'C:\QQBot' -Filter '*.bat' | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'QQ Bot Launcher' } | Select-Object -First 1; if($f){ Start-Process -FilePath $f.FullName -WorkingDirectory 'C:\QQBot' -WindowStyle Minimized; exit 0 } else { exit 1 }"
+rem 安装信息.txt：给客户与 AI 一个“装在哪”的稳定锚点（无密钥、无账号）
+> "%TARGET%\安装信息.txt" (
+    echo QQBot 安装信息
+    echo ==========================================
+    echo 安装目录：%TARGET%
+    echo 安装盘符：%DRIVE%
+    echo 安装时间：%DATE% %TIME%
+    echo 安装包版本：v0.1.0
+    echo 安装包大小：174288896 字节
+    echo 说明：卸载 = 删除整个安装目录；删除本文件不影响运行。
+)
+if not exist "%TARGET%\安装信息.txt" echo [提示] 安装信息.txt 写入失败，不影响运行。
+
+echo [3/4] 正在启动机器人...
+if not exist "%TARGET%\runtime\python\python.exe" goto startfail
+powershell -NoProfile -Command "$f=Get-ChildItem -LiteralPath '%TARGET%' -Filter '*.bat' | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'QQ Bot Launcher' } | Select-Object -First 1; if($f){ Start-Process -FilePath $f.FullName -WorkingDirectory '%TARGET%' -WindowStyle Minimized; exit 0 } else { exit 1 }"
 if errorlevel 1 goto startfail
 echo [%TIME%] START_OK >> "%LOG%"
 
-echo [3/3] 即将自动打开控制页面
+echo [4/4] 即将自动打开控制页面
 echo.
 ping -n 4 127.0.0.1 >nul
 
@@ -98,6 +139,15 @@ set "TD=%TD:~0,-1%"
 start "" /MIN powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 6; Remove-Item -LiteralPath '%TD%' -Recurse -Force -ErrorAction SilentlyContinue"
 call :unlock
 exit /b 0
+
+:baddir
+echo [%TIME%] BAD_DRIVE=%DRIVE% >> "%LOG%"
+call :unlock
+echo.
+echo [错误] 盘符无效：%DRIVE%
+echo [提示] 请输入 C/D/E/F 这样的单个字母；直接回车 = C 盘。
+pause
+exit /b 1
 
 :cancel
 echo [%TIME%] CANCELLED >> "%LOG%"
@@ -111,7 +161,7 @@ exit /b 1
 echo [%TIME%] EXTRACT_FAIL >> "%LOG%"
 call :unlock
 echo.
-echo [错误] 解压失败。请确认安装包完整，然后重试。
+echo [错误] 解压失败。请确认安装包完整、目标盘有足够空间，然后重试。
 pause
 exit /b 1
 
@@ -119,7 +169,7 @@ exit /b 1
 echo [%TIME%] START_FAIL >> "%LOG%"
 call :unlock
 echo.
-echo [错误] 启动失败：找不到 C:\QQBot\启动.bat 或 runtime\python。
+echo [错误] 启动失败：找不到 %TARGET%\启动.bat 或 runtime\python。
 pause
 exit /b 1
 
