@@ -10,8 +10,12 @@
 - **推演例外**：仅 `$DryRun = 1` 时可用 `$Root = "C:\QQBotRehearsal"`；推演结束立即删除，生产 agent 不得使用该模式。
 - 所有服务只绑 `127.0.0.1`；禁止 `0.0.0.0`、端口映射、管理员/UAC、注册表、Windows 服务。
 - token 只存本机 `runtime\secrets\`；模型 key 仅注入本机 `cmd_config.json`（内存传递，不落明文文件、不回显、不发聊天、不写日志/仓库/报告；报告只写 `***`）。
-- 固定版本与 SHA256；禁止 `latest`、第三方镜像、自动更新、跳过校验。
+- 固定版本与 SHA256；禁止 `latest`、第三方镜像、自动更新、跳过校验。**唯一镜像例外**：PyPI 依赖可走清华镜像
+  `https://pypi.tuna.tsinghua.edu.cn/simple`；NapCat / uv / Python / 7-Zip / 插件等组件仍只走官方源，禁止 CDN、网盘、转载包。
 - 任一步失败：**停止**，打印命令、错误、已完成步骤与回滚方法，上报；禁止换方案或凑合。
+- **首装计时（分阶段）**：组件获取（§2）预算 **60 分钟**（下载 + 解压 + 依赖安装，受网速影响）；
+  其余阶段（§1、§3–§9）维持 **10 分钟** 红线。计时从该阶段第一条命令开始；超预算 → 停止上报，
+  禁止靠延长等待或反复重试硬扛。报告只写「阶段 / 耗时 / 是否超时」。
 - 不登录 QQ、不扫码；人类检查点（扫码 / 提供 key / 回答问答）必须等人类完成，agent 仅做本地注入。
 - 不读取无关密钥；不覆盖未备份配置；不删除 `$Root` 之外的任何路径。
 
@@ -38,7 +42,9 @@ Get-NetTCPConnection -State Listen -LocalPort 3000,3001,6099,6185 -ErrorAction S
 - **JSON 读写红线**：一切 JSON 读写必须用 Python（`utf-8-sig`）；**禁止** `ConvertFrom-Json` + `Set-Content`
   组合（PS 5.1 会写 BOM / 损坏中文，BOM 事故教训）。
 
-## 2. 组件获取（全部 pinned，禁止 latest）
+## 2. 组件获取（全部 pinned，禁止 latest；预算 60 分钟）
+
+> **计时**：本节是首装唯一的长耗时阶段，预算 60 分钟（下载 + 解压 + 依赖安装）；其余章节仍为 10 分钟红线（见 §0）。
 
 ```powershell
 $Repo = (Get-Location).Path
@@ -65,10 +71,12 @@ uv python install 3.12.15
 $py = (uv python find 3.12.15)
 Copy-Item (Split-Path $py -Parent) "$Root\runtime\python" -Recurse -Force
 uv pip install --break-system-packages --python "$Root\runtime\python\python.exe" `
-  --index-url https://pypi.org/simple astrbot==4.29.3 chinese-calendar==1.11.0 `
+  --index-url https://pypi.tuna.tsinghua.edu.cn/simple astrbot==4.29.3 chinese-calendar==1.11.0 `
   lunarcalendar==0.0.9 json5==0.17.3 apilmoji==0.3.1 Pillow==13.0.0 beautifulsoup4==4.15.0
 & "$Root\runtime\python\python.exe" -m astrbot.cli --version   # 4.29.3
 ```
+- **镜像范围**：只有 pip（PyPI）可镜像，默认清华；`uv python install`、NapCat、7-Zip、插件仍走官方源。
+  清华缺包或哈希不符 → 只允许改回官方 `https://pypi.org/simple` 重试一次；仍失败即停止上报。
 
 **插件**（实测为 3 个；若交付另有第 4 个，必须另给固定 commit，禁止 latest）：
 ```powershell
